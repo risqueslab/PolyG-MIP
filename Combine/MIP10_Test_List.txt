@@ -1,0 +1,5 @@
+0	32-hr-colon-FPU	32-hr-colon-crude-extra-dNTPs
+1	6-hr-colon-David-Crispin-BP	6-hr-colon-David-Crispin-Crude
+2	B12-20788-4-crude	B12-20788-4-Colonoscopy-BP
+3	B13-27824-4-Colonoscopy-BP	B13-27824-4-crude
+4	B13-30909-epi-crude	B13-30909-str-crude

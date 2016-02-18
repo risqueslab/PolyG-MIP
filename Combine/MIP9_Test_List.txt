@@ -1,0 +1,8 @@
+0	111L-A5-epi	111L-A5-str
+1	182J-B4-epi	182J-B4-str
+2	3062514-C5-epi	3062514-C5-str
+3	3062587-C4-epi	3062587-C4-str
+4	33T-A18-epi	33T-A18-str
+5	41Z-C1-epi	41Z-C1-str
+6	4Z-B40-epi	4Z-B40-str
+7	53Z-D4-epi	53Z-D4-str
