@@ -1,4 +1,4 @@
-#/.../.../mipgen_analysis.sh folder read1.fq read2.fq readi.fq barcode prefix
+#/.../.../mipgen_analysis_multiplex.sh folder read1.fq read2.fq readi.fq barcode prefix
 
 set -e
 set -o pipefail
@@ -18,8 +18,8 @@ lig_tag_size=4
 fqprefix=~/Desktop/$1/${prefix}
 bamprefix=${fqprefix}.indexed.sort
 cut_read1=${fqprefix}.assembled.fastq
-#gref=~/MIPGEN/reference/human_g1k_v37.fasta
-gref=~/MIPGEN/reference/synthetic_reference.fasta
+gref=~/MIPGEN/reference/human_g1k_v37.fasta
+#gref=~/MIPGEN/reference/synthetic_reference.fasta
 
 python ${script_dir}mipgen_fq_cutter_pe.py $pe_premerge_read1 $pe_premerge_read2 -tb $barcodes -i $indexread -j 10 -o $fqprefix &&
 pear -j $threads -f $pear_read1 -r $pear_read2 -o $fqprefix &&
@@ -41,3 +41,4 @@ sort -nk3,3 ${fqprefix}.explained.shortform.txt | sort -nk1,1 |sort -sk2,2 > ${f
 
 #Rscript ${MipDir}MipRscript.r ${prefix}
 echo "Done!"
+

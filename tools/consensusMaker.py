@@ -1,27 +1,42 @@
 # Written by Alexander M. West
-# Version: Dec. 4, 2015
+# Version: Mar. 23, 2016
+
+import sys
 
 #The consensus maker uses a simple "majority/plurality rules" algorithm to make a consensus at each base position.
 
-def consensusMaker (file):
+def consensusMaker(file):
     nucKeyDict = {0:'T', 1:'C', 2:'G', 3:'A', 4:'-'}
     nucIdentityList = {}
     totalPositions = 0
     consensusRead = ''
     currentSeq = ""
+    pluralityQuantities = []
+    totalReads = 0
+    consensusInfo = ""
     #agreementThreshold = float (5)/10  #require 50% agreement to call a bp - not currently in use
 
     f = open(file)
-    for line in f:
-        #print currentSeq
-        if '>' in line and currentSeq != '':
+    lines = f.readlines()
+    j = 0
+    while j < len(lines):
+        if '>' in lines[j]:
+            totalReads += 1
+        else:
+            currentSeq += lines[j].rsplit()[0]
+            try:
+                if '>' not in lines[j+1]:
+                    currentSeq += lines[j+1].rsplit()[0]
+                    j += 1
+            except:
+                pass
             if totalPositions == 0:
                 totalPositions = len(currentSeq) - 1
                 for i in range(totalPositions):
                     nucIdentityList[i] = [0, 0, 0, 0, 0, 0] # In the order of T, C, G, A, -, Total
             for character in range(len(currentSeq)):
-    #for i in xrange(readLength) : # Count the types of nucleotides at a position in a read. i is the nucleotide index within a read in groupedReadsList
-    #for j in xrange(len(groupedReadsList)): # Do this for every read that comprises a SMI group. j is the read index within groupedReadsList
+#for i in xrange(readLength) : # Count the types of nucleotides at a position in a read. i is the nucleotide index within a read in groupedReadsList
+#for j in xrange(len(groupedReadsList)): # Do this for every read that comprises a SMI group. j is the read index within groupedReadsList
                 try:
                     if currentSeq[character] == 't' :
                         nucIdentityList[character][0] += 1
@@ -37,8 +52,8 @@ def consensusMaker (file):
                 except:
                     break
             currentSeq = ""
-        else:
-            currentSeq += line.rsplit()[0]
+        j += 1
+
     #tally the last sequence, avoid fencepost issue
     for character in range(len(currentSeq)):
         try:
@@ -66,6 +81,7 @@ def consensusMaker (file):
                     pluralityRead = j
                     pluralityQuantity = nucIdentityList[i][j]
             consensusRead += nucKeyDict[pluralityRead]
+            pluralityQuantities.append(pluralityQuantity)
                 #print float(nucIdentityList[i][j])/float(nucIdentityList[i][5])
                 #if float(nucIdentityList[i][j])/float(nucIdentityList[i][5]) >= agreementThreshold :
                 #consensusRead += nucKeyDict[j]
@@ -94,4 +110,11 @@ def consensusMaker (file):
                 #        break
         except:
             consensusRead += "N"
-    return consensusRead
+    #print consensusRead, totalReads, pluralityQuantities
+    consensusInfo = str(totalReads)
+    for i in range(len(pluralityQuantities)):
+        consensusInfo = consensusInfo + "\t" + consensusRead[i] + "\t" + str(round(float(pluralityQuantities[i])/totalReads, 3))
+    #print consensusRead, consensusInfo
+    return consensusRead, consensusInfo
+
+#consensusMaker(sys.argv[1])

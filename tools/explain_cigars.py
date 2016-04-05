@@ -1,12 +1,11 @@
 # Maintained by Alexander M. West
-# Version: Sept. 2, 2015
+# Version: Feb. 29, 2016
 
 import sys
 import os
 sys.path.append("~/MIPGEN/tools")
 from genome_sam_collapser import *
 from consensusMaker import *
-from sequenceCleaner import *
 import re
 from collections import defaultdict
 counts = defaultdict(lambda : defaultdict(lambda : defaultdict(lambda : 0)))
@@ -27,6 +26,7 @@ allele_out = open(prefix + ".allele_out.txt", 'w')
 cigar_out = open(prefix + ".cigar_out.txt", 'w')
 longform = open(prefix + ".longform.txt", 'w')
 shortform = open(prefix + ".shortform.txt", 'w')
+debug_cigars = open(prefix + ".debug_cigars.txt", 'w')
 histogram = {}
 miplist = {}
 #mip_in_process = {}
@@ -65,19 +65,23 @@ cigar_pattern = re.compile("([\d]+)([A-Z])")
 #iterate through reads, sort into tags and inventory
 for sam_line in sys.stdin:
   current_read = sam_read(sam_line, mip_key_first_coordinate_lookup, mip_key_second_coordinate_lookup)
+  debug_cigars.write(current_read.mip_key + "\t" + current_read.mtag + "\t" + current_read.seq + "\t")
   if current_read.barcode not in barcode_labels:
     continue
   relstart, tractlen = mip_to_info[current_read.mip_key]
+  debug_cigars.write(str(relstart) + "\t" + str(tractlen) + "\t")
   parsed_cigar = []
   for pair in cigar_pattern.findall(current_read.cigar):
     parsed_cigar.append([int(pair[0]), pair[1]])
-  current_read.trim_scan_sequences(relstart - 7, relstart + tractlen + 4, parsed_cigar)
+  debug_cigars.write(str(parsed_cigar) + "\t")
+  current_read.trim_scan_sequences(relstart - 1, relstart + tractlen -2, parsed_cigar)
+  debug_cigars.write(current_read.seq + "\n")
 		# -2 to correct for awk index and get adjacent base, +1 to get adjacent base,
 		# -1 to get to last scan, -1 to correct for awk index
-		# -5, +5 to Evan's figures to expand sequence by 5 front and back
 		#  print current_read.mip_key, current_read.seq, current_read.cigar
-  sequence_path = prefix.rpartition("/")[0] + "/Sequences/" + barcode_labels[current_read.barcode] + "/"
-#sequence_path = prefix.rpartition("/")[0] + "/Sequences/" + prefix.rpartition("/")[2].rpartition("_")[0] + "/"
+        # +1, -1 to remove all adjacent bases
+  #sequence_path = prefix.rpartition("/")[0] + "/Sequences/" + barcode_labels[current_read.barcode] + "/"
+  sequence_path = prefix.rpartition("/")[0] + "/Sequences/" + prefix.rpartition("/")[2].rpartition("_")[0] + "/"
   if not os.path.exists(sequence_path):
     os.makedirs(sequence_path)
   file = open(sequence_path + current_read.mip_key.split("/")[0] + "." + current_read.mtag + ".txt", 'a')
@@ -88,7 +92,8 @@ for sam_line in sys.stdin:
   refoverlap = current_read.cigar_length()
   if len(current_read.seq) == 0:
     continue
-  if refoverlap == tractlen + 12:
+  #line below used to be tractlen + n, where n is the number of bases around the target kept after trim_scan_sequences
+  if refoverlap == tractlen + 0:
     if re.search("(G{9}G*|C{9}C*)", current_read.seq):
       mip_sample_alleles[current_read.mip_key][current_read.barcode][current_read.seq + " homo"] += 1
     else:
@@ -112,6 +117,9 @@ mip_allele_count = {}   #a dictionary of alleles and frequency of tags
 allele_tag_total = 0    #the number of tags for a given allele?
 tag_read_tally = {}
 mip_read_tally = {}
+
+#adding headers to longform file
+#DN: longform.write("MIP" + "\t" + "SAMPLE" + "\t" + "TAG" + "\t" + "SEQUENCE" + "\t" + "READS" + "\n")
 
 #iterate through all reads and perform appropriate methods
 for mip, bar_dict in alldepth.iteritems():
@@ -139,13 +147,13 @@ for mip, bar_dict in alldepth.iteritems():
       else:
         tag_read_tally[(total_tcount, bar)] = 1
       if total_tcount > 2:
-        sequence_path = prefix.rpartition("/")[0] + "/Sequences/" + bar + "/"
-        #sequence_path = prefix.rpartition("/")[0] + "/Sequences/" + prefix.rpartition("/")[2].rpartition("_")[0] + "/"
+          #sequence_path = prefix.rpartition("/")[0] + "/Sequences/" + bar + "/"
+        sequence_path = prefix.rpartition("/")[0] + "/Sequences/" + prefix.rpartition("/")[2].rpartition("_")[0] + "/"
         os.system("linsi --allowshift --kappa 1 --quiet --thread 4 " + sequence_path + mip.split("/")[0] + "." + mtag + ".txt > " + sequence_path + mip.split("/")[0] + "." + mtag + ".aligned.txt")
-        sequence = consensusMaker(sequence_path + mip.split("/")[0] + "." + mtag + ".aligned.txt").replace("-", "")
-        longform.write(mip + "\t" + bar + "\t" + mtag + "\t" + sequence + "\n")
-        sequence = sequenceCleaner(sequence)
-        if not sequence[0] == "":
+        sequence, sequence_info = consensusMaker(sequence_path + mip.split("/")[0] + "." + mtag + ".aligned.txt")
+        sequence = sequence.replace("-", "")
+        longform.write(mip + "\t" + bar + "\t" + mtag + "\t" + sequence + "\t" + sequence_info + "\n")
+        if not sequence == "":
           if sequence in mip_allele_count.keys():
             mip_allele_count[sequence] = mip_allele_count[sequence] + 1
           else:
@@ -159,7 +167,8 @@ for mip, bar_dict in alldepth.iteritems():
         mip_read_tally[(mip, bar)] = (mip_read_tally[(mip, bar)][0], mip_read_tally[(mip, bar)][1] + mip_allele_count[allele], mip_read_tally[(mip, bar)][2], mip_read_tally[(mip, bar)][3], mip_read_tally[(mip, bar)][4])
     for allele in mip_allele_count:
       if mip_allele_count[(allele)] > minimum_tag_threshold:
-          shortform.write(mip + "\t" + bar + "\t" + str(allele[0]) + "\t" + str(allele[1]) +"\t" + str(mip_allele_count[allele]) + "\t" + str(mip_allele_count[allele] / float(allele_tag_total)) + "\n")
+          #shortform.write(mip + "\t" + bar + "\t" + str(allele[0]) + "\t" + str(allele[1]) +"\t" + str(mip_allele_count[allele]) + "\t" + str(mip_allele_count[allele] / float(allele_tag_total)) + "\n")
+          shortform.write(mip + "\t" + bar + "\t" + str(allele) + "\t" + str(len(allele)) + "\t" + str(mip_allele_count[allele]) + "\t" + str(mip_allele_count[allele] / float(allele_tag_total)) + "\n")
     mip_allele_count = {}
     allele_tag_total = 0
 #mip level output
@@ -175,6 +184,7 @@ for value in sorted(mip_read_tally, key=lambda read: read[0].partition(":")):
 #close all
 longform.close()
 shortform.close()
+debug_cigars.close()
 for label in histogram:
     histogram[label].close()
 for label in miplist:
